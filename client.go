@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -67,7 +68,7 @@ func New(agentName string) *Client {
 	return &Client{*http.DefaultClient, MaxSendAttempts, agentName}
 }
 
-func createHeaders(extraHeaders http.Header, contentType, authToken string) http.Header {
+func (c *Client) createHeaders(extraHeaders http.Header, contentType string) http.Header {
 	headers := make(http.Header)
 	if extraHeaders != nil {
 		for header, values := range extraHeaders {
@@ -76,11 +77,9 @@ func createHeaders(extraHeaders http.Header, contentType, authToken string) http
 			}
 		}
 	}
-	if authToken != "" {
-		headers.Set("X-Auth-Token", authToken)
-	}
 	headers.Add("Content-Type", contentType)
 	headers.Add("Accept", contentType)
+	headers.Add("User-Agent", c.agentName)
 	return headers
 }
 
@@ -99,8 +98,7 @@ func (c *Client) PlainRequest(method, url string, reqData *RequestData) (resp []
 			return
 		}
 	}
-	headers := createHeaders(reqData.ReqHeaders, "text/plain", "")
-	headers.Add("User-Agent", c.agentName)
+	headers := c.createHeaders(reqData.ReqHeaders, "text/plain")
 	respBody, statusCode, err := c.sendRequest(method, url, bytes.NewReader(body), len(body), headers, reqData.ExpectedStatus)
 	reqData.StatusCode = statusCode
 	resp, err = ioutil.ReadAll(respBody)
@@ -114,7 +112,7 @@ func (c *Client) PlainRequest(method, url string, reqData *RequestData) (resp []
 // ExpectedStatus: the allowed HTTP response status values, else an error is returned.
 // ReqValue: the data object to send.
 // RespValue: the data object to decode the result into.
-func (c *Client) JsonRequest(method, url, token string, reqData *RequestData) (err error) {
+func (c *Client) JsonRequest(method, url string, reqData *RequestData) (err error) {
 	err = nil
 	var body []byte
 	if reqData.Params != nil {
@@ -129,7 +127,7 @@ func (c *Client) JsonRequest(method, url, token string, reqData *RequestData) (e
 			return
 		}
 	}
-	headers := createHeaders(reqData.ReqHeaders, contentTypeJSON, token)
+	headers := c.createHeaders(reqData.ReqHeaders, contentTypeJSON)
 	respBody, statusCode, err := c.sendRequest(
 		method, url, bytes.NewReader(body), len(body), headers, reqData.ExpectedStatus)
 	reqData.StatusCode = statusCode
@@ -139,21 +137,6 @@ func (c *Client) JsonRequest(method, url, token string, reqData *RequestData) (e
 		return
 	}
 	err = unmarshallResponse(respBody, reqData)
-	// defer respBody.Close()
-	// respData, err := ioutil.ReadAll(respBody)
-	// if err != nil {
-	//	err = errors.Newf(err, "failed reading the response body")
-	//	return
-	// }
-
-	// if len(respData) > 0 {
-	//	if reqData.RespValue != nil {
-	//		err = json.Unmarshal(respData, &reqData.RespValue)
-	//		if err != nil {
-	//			err = errors.Newf(err, "failed unmarshaling the response body: %s", respData)
-	//		}
-	//	}
-	// }
 	return
 }
 
@@ -187,7 +170,7 @@ func (c *Client) BinaryRequest(method, url, token string, reqData *RequestData) 
 	if reqData.Params != nil {
 		url += "?" + reqData.Params.Encode()
 	}
-	headers := createHeaders(reqData.ReqHeaders, contentTypeOctetStream, token)
+	headers := c.createHeaders(reqData.ReqHeaders, contentTypeOctetStream)
 	respBody, statusCode, err := c.sendRequest(
 		method, url, reqData.ReqReader, reqData.ReqLength, headers, reqData.ExpectedStatus)
 	reqData.StatusCode = statusCode
@@ -210,17 +193,6 @@ func (c *Client) BinaryRequest(method, url, token string, reqData *RequestData) 
 // expectedStatus: a slice of allowed response status codes.
 func (c *Client) sendRequest(method, URL string, reqReader io.Reader, length int, headers http.Header,
 	expectedStatus []int) (rc io.ReadCloser, statusCode int, err error) {
-	/*
-	 * var reqData []byte
-	 * if reqReader != nil && !stream{
-	 *	reqData := make([]byte, length)
-	 *	nrRead, err := io.ReadFull(reqReader, reqData)
-	 *	if err != nil {
-	 *		err = errors.Newf(err, "failed reading the request data, read %v of %v bytes", nrRead, length)
-	 *		return rc, err
-	 *	}
-	 * }
-	 */
 	rawResp, err := c.sendRateLimitedRequest(method, URL, headers, reqReader)
 	if err != nil {
 		return
