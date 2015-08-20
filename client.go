@@ -20,6 +20,13 @@ import (
 const (
 	contentTypeJSON        = "application/json"
 	contentTypeOctetStream = "application/octet-stream"
+	// The HTTP request methods.
+	GET    = "GET"
+	POST   = "POST"
+	PUT    = "PUT"
+	DELETE = "DELETE"
+	HEAD   = "HEAD"
+	COPY   = "COPY"
 )
 
 type Client struct {
