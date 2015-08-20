@@ -109,3 +109,31 @@ func NewUnauthorisedf(cause error, context interface{}, format string, args ...i
 	}
 	return makeErrorf(UnauthorisedError, cause, format, args...)
 }
+
+func IsNotFound(err error) bool {
+	if e, ok := err.(*httpError); ok {
+		return e.causedBy(NotFoundError)
+	}
+	return false
+}
+
+func IsDuplicateValue(err error) bool {
+	if e, ok := err.(*httpError); ok {
+		return e.causedBy(DuplicateValueError)
+	}
+	return false
+}
+
+func IsTimeout(err error) bool {
+	if e, ok := err.(*httpError); ok {
+		return e.causedBy(TimeoutError)
+	}
+	return false
+}
+
+func IsUnauthorised(err error) bool {
+	if e, ok := err.(*httpError); ok {
+		return e.causedBy(UnauthorisedError)
+	}
+	return false
+}
